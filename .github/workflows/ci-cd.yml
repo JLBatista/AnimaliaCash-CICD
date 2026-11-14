@@ -3,9 +3,11 @@
 # CI (integração contínua), a cada push e pull request:
 #   1. Versão web (React + Vite): instala, roda os testes automáticos e gera o site
 #   2. App (Expo / React Native): checagem de tipos, lint e geração do pacote web do app
+#   3. Docker: monta a imagem do site (Node gera, Nginx serve), liga o container e testa se responde
 #
 # CD (entrega contínua), só quando o CI passa na branch main:
-#   3. Publica o site no Cloudflare Pages. Precisa dos secrets CLOUDFLARE_API_TOKEN e
+#   4. Publica a imagem Docker no GitHub Container Registry (ghcr.io), sem precisar de secrets
+#   5. Publica o site no Cloudflare Pages. Precisa dos secrets CLOUDFLARE_API_TOKEN e
 #      CLOUDFLARE_ACCOUNT_ID (Settings > Secrets and variables > Actions). Sem eles, a etapa
 #      só avisa e o site gerado fica disponível para download como artefato da execução.
 
@@ -88,9 +90,54 @@ jobs:
       - name: Gerar o pacote do app (prova que o projeto compila)
         run: npx expo export --platform web --output-dir dist-app
 
+  docker:
+    name: CI · Docker (imagem e container)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write   # permite publicar a imagem no GitHub Container Registry
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Montar a imagem Docker (os testes rodam dentro dela)
+        run: docker build -t animaliacash-web:teste ./web
+
+      - name: Ligar o container
+        run: docker run -d --name site -p 8080:80 animaliacash-web:teste
+
+      - name: Testar o site dentro do container
+        run: |
+          for i in $(seq 1 15); do
+            curl -fsS http://localhost:8080/ > /dev/null && break
+            sleep 1
+          done
+          # A página inicial e uma rota do sistema precisam devolver o app
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/estoque | grep -q '<div id="root">'
+          size=$(docker image inspect animaliacash-web:teste --format '{{.Size}}')
+          echo "::notice title=Docker::✅ Container no ar e respondendo · imagem com $((size / 1024 / 1024)) MB (Nginx servindo o site pronto)"
+
+      - name: Desligar o container
+        if: always()
+        run: docker rm -f site || true
+
+      - name: Publicar a imagem no GitHub Container Registry
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          image="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')/animaliacash-web"
+          docker tag animaliacash-web:teste "$image:latest"
+          docker tag animaliacash-web:teste "$image:${GITHUB_SHA::7}"
+          docker push "$image:latest"
+          docker push "$image:${GITHUB_SHA::7}"
+          echo "::notice title=Imagem publicada::$image:latest (para rodar: docker run -p 8080:80 $image:latest)"
+
   deploy-web:
     name: CD · Publicar site
-    needs: [web, app]
+    needs: [web, app, docker]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     env:

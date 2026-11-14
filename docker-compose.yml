@@ -1,0 +1,12 @@
+# Sobe a versão web do Animalia Cash em um container, com um único comando:
+#   docker compose up --build
+# Depois abra http://localhost:8080 (para parar: Ctrl+C, e depois docker compose down)
+services:
+  web:
+    build:
+      context: ./web
+    image: animaliacash-web
+    container_name: animaliacash-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped

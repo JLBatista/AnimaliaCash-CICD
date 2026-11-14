@@ -90,6 +90,21 @@ A cada envio ao GitHub, o pipeline em [.github/workflows/ci-cd.yml](.github/work
 |---|---|
 | **CI · Web** | Instala, roda os 23 testes automáticos (Vitest) e gera o site |
 | **CI · App** | Checagem de tipos (TypeScript), lint (ESLint) e geração do pacote do app Expo |
-| **CD · Publicar site** | Se o CI passar na main, publica o site no Cloudflare Pages (com os secrets CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID) |
+| **CI · Docker** | Monta a imagem do site (Node gera, Nginx serve), liga o container e testa se ele responde |
+| **CD · Publicar** | Se o CI passar na main, publica a imagem Docker no GitHub Container Registry e o site no Cloudflare Pages (com os secrets CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID) |
 
 Testes locais da versão web: `cd web && npm test`.
+
+## Docker
+
+A versão web roda em um container (Nginx servindo o site gerado pelo Vite):
+
+```bash
+docker compose up --build
+```
+
+Depois abra http://localhost:8080. A imagem também é publicada a cada versão aprovada:
+
+```bash
+docker run -p 8080:80 ghcr.io/jlbatista/animaliacash-web:latest
+```

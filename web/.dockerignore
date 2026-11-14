@@ -1,0 +1,9 @@
+# Arquivos que não entram na imagem Docker (deixam a construção mais rápida e a imagem menor)
+node_modules
+dist
+test-results.json
+test-output.log
+.vite
+*.log
+Dockerfile
+.dockerignore
