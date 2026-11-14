@@ -88,12 +88,14 @@ A cada envio ao GitHub, o pipeline em [.github/workflows/ci-cd.yml](.github/work
 
 | Etapa | O que faz |
 |---|---|
-| **CI · Web** | Instala, roda os 23 testes automáticos (Vitest) e gera o site |
+| **CI · Web** | Instala, roda os 23 testes automáticos (Vitest), mede a cobertura de testes e gera o site |
 | **CI · App** | Checagem de tipos (TypeScript), lint (ESLint) e geração do pacote do app Expo |
 | **CI · Docker** | Monta a imagem do site (Node gera, Nginx serve), liga o container e testa se ele responde |
 | **CD · Publicar** | Se o CI passar na main, publica a imagem Docker no GitHub Container Registry e o site no Cloudflare Pages (com os secrets CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID) |
 
-Testes locais da versão web: `cd web && npm test`.
+Testes locais da versão web: `cd web && npm test`. Com cobertura: `npx vitest run --coverage` (relatório em `web/coverage/index.html`).
+
+**Cobertura atual:** regras de negócio ~64% das linhas; site inteiro ~9%, porque as telas ainda não têm testes automáticos. Os testes são unitários (não de ponta a ponta).
 
 ## Docker
 

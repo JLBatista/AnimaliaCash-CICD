@@ -46,7 +46,7 @@ jobs:
         run: |
           set -o pipefail
           # Em caso de falha, o resumo vira um aviso visível na página da execução
-          npm test -- --reporter=default --reporter=json --outputFile=test-results.json 2>&1 | tee test-output.log || {
+          npm test -- --coverage --reporter=default --reporter=json --outputFile=test-results.json 2>&1 | tee test-output.log || {
             echo "::error title=Falha nos testes::$(tail -c 3000 test-output.log | tr '\n' ' ')"
             exit 1
           }
@@ -56,6 +56,20 @@ jobs:
         run: |
           node scripts/test-summary.mjs test-results.json >> "$GITHUB_STEP_SUMMARY"
           node scripts/test-summary.mjs test-results.json --notice
+
+      - name: Cobertura de testes
+        if: always() && hashFiles('web/coverage/coverage-summary.json') != ''
+        run: |
+          node scripts/coverage-summary.mjs coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+          node scripts/coverage-summary.mjs coverage/coverage-summary.json --notice
+
+      - name: Guardar o relatório de cobertura (página navegável)
+        if: always() && hashFiles('web/coverage/index.html') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorio-cobertura
+          path: web/coverage
+          retention-days: 14
 
       - name: Gerar o site
         run: npm run build
