@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -30,25 +30,25 @@ export default function TemplatesScreen() {
   // Opções pré-definidas de categorias para os chips do modal
   const categoriasOpcoes = ['Estética', 'Cirúrgico', 'Clínico'];
 
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('templates_procedimentos')
-        .select('*')
-        .order('nome', { ascending: true });
-
-      if (error) throw error;
-      setTemplates(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar templates:', error);
-    } finally {
+  // Busca no banco; o estado só muda quando a resposta chega (pode rodar dentro do useEffect)
+  const loadTemplates = useCallback(() => supabase
+    .from('templates_procedimentos')
+    .select('*')
+    .order('nome', { ascending: true })
+    .then(({ data, error }) => {
+      if (error) console.error('Erro ao buscar templates:', error);
+      else setTemplates(data || []);
       setLoading(false);
-    }
+    }), []);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  // Recarrega mostrando o indicador (depois de salvar, excluir...)
+  const fetchTemplates = () => {
+    setLoading(true);
+    return loadTemplates();
   };
 
   // Função para salvar novo template no Supabase

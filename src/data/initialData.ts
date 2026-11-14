@@ -14,6 +14,7 @@ export const initialClinicSettings: ClinicSettings = {
   defaultVetCommissionInternmentPercent: 20.0, // Comissão padrão do veterinário plantonista/internista (%)
   defaultVetCommissionBathPercent: 15.0, // Comissão padrão do tosador/banhista (%)
   includeLaborInCost: true,
+  averageProductWastePercent: 0,
 };
 
 export const initialInsumos: Insumo[] = [

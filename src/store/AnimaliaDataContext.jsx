@@ -52,9 +52,8 @@ export function AnimaliaDataProvider({ children }) {
   const [data, setData] = useState(() => buildState({}));
   const [session, setSession] = useState(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
-  const [profileRole, setProfileRole] = useState(null);
-  const [profileRoleLoaded, setProfileRoleLoaded] = useState(false);
-  const [profileRoleUserId, setProfileRoleUserId] = useState(null);
+  // Perfil de acesso (tabela profiles) do usuário logado; só muda quando a consulta responde
+  const [profileState, setProfileState] = useState({ userId: null, role: null });
   const [autoSync, setAutoSyncState] = useState(true);
   const [syncStatus, setSyncStatus] = useState({ state: 'idle' });
   // Conta alterações feitas pelo usuário; carregar ou baixar dados não dispara envio automático
@@ -93,18 +92,11 @@ export function AnimaliaDataProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!sessionLoaded) return undefined;
-    if (!userId) {
-      setProfileRole(null);
-      setProfileRoleUserId(null);
-      setProfileRoleLoaded(true);
-      return undefined;
-    }
-
+    if (!sessionLoaded || !userId) return undefined;
     let active = true;
-    setProfileRoleLoaded(false);
 
     const loadProfileRole = async () => {
+      let role = sessionMetadataRole ?? 'Veterinário';
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -113,16 +105,11 @@ export function AnimaliaDataProvider({ children }) {
           .maybeSingle();
 
         if (error) throw error;
-        if (active) setProfileRole(profile?.role ?? sessionMetadataRole ?? 'Veterinário');
+        role = profile?.role ?? role;
       } catch (error) {
         console.error('Erro ao carregar o perfil de acesso:', error);
-        if (active) setProfileRole(sessionMetadataRole ?? 'Veterinário');
-      } finally {
-        if (active) {
-          setProfileRoleUserId(userId);
-          setProfileRoleLoaded(true);
-        }
       }
+      if (active) setProfileState({ userId, role });
     };
 
     loadProfileRole();
@@ -130,6 +117,11 @@ export function AnimaliaDataProvider({ children }) {
       active = false;
     };
   }, [userId, sessionLoaded, sessionMetadataRole]);
+
+  // Sem usuário logado não há perfil a buscar; com usuário, vale só a resposta da conta atual
+  const profileRoleLoaded = sessionLoaded && (!userId || profileState.userId === userId);
+  const profileRole = userId && profileState.userId === userId ? profileState.role : null;
+  const profileRoleUserId = userId ? profileState.userId : null;
 
   useEffect(() => {
     if (!loaded) return;

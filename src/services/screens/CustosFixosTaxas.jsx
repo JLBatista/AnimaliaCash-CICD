@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,6 +14,9 @@ import { NumberInput } from '../../components/ui';
 import { useAnimaliaData } from '../../store/AnimaliaDataContext';
 import { supabase } from '../../supabase';
 import { calculateProcedure } from '../../utils/costCalculations';
+
+// Id de procedimento novo (fora do componente: depende do relógio)
+const newProcedureId = () => `proc_${Date.now()}`;
 
 export default function CustosETaxasScreen() {
   const { procedures, insumosMap, settings, saveSettings } = useAnimaliaData();
@@ -49,38 +52,37 @@ export default function CustosETaxasScreen() {
   ];
   const formasTaxas = ['À vista / Instantâneo', 'Débito', 'Crédito à vista', 'Crédito Parcelado (2x a 6x)'];
 
-  useEffect(() => {
-    fetchFinancialData();
-  }, []);
+  // Se a taxa mudar fora daqui (ex: baixada do Supabase), o campo acompanha
+  const savedWasteRate = settings.averageProductWastePercent ?? 0;
+  const [wasteRateFor, setWasteRateFor] = useState(savedWasteRate);
+  if (wasteRateFor !== savedWasteRate) {
+    setWasteRateFor(savedWasteRate);
+    setWasteRateInput(savedWasteRate);
+  }
 
-  useEffect(() => {
-    setWasteRateInput(settings.averageProductWastePercent ?? 0);
-  }, [settings.averageProductWastePercent]);
-
-  const fetchFinancialData = async () => {
-    setLoading(true);
-    try {
-      const { data: custosData, error: custosError } = await supabase
-        .from('custos_fixos')
-        .select('*')
-        .order('nome', { ascending: true });
-
-      if (custosError) throw custosError;
-
-      const { data: taxasData, error: taxasError } = await supabase
-        .from('taxas_pagamento')
-        .select('*')
-        .order('bandeira', { ascending: true });
-
-      if (taxasError) throw taxasError;
-
-      setCustosFixos(custosData || []);
-      setTaxasPagamento(taxasData || []);
-    } catch (error) {
+  // Busca no banco; o estado só muda quando a resposta chega (pode rodar dentro do useEffect)
+  const loadFinancialData = useCallback(() => Promise.all([
+    supabase.from('custos_fixos').select('*').order('nome', { ascending: true }),
+    supabase.from('taxas_pagamento').select('*').order('bandeira', { ascending: true }),
+  ]).then(([custos, taxas]) => {
+    const error = custos.error || taxas.error;
+    if (error) {
       console.error('Erro ao carregar custos fixos e taxas:', error);
-    } finally {
-      setLoading(false);
+    } else {
+      setCustosFixos(custos.data || []);
+      setTaxasPagamento(taxas.data || []);
     }
+    setLoading(false);
+  }), []);
+
+  useEffect(() => {
+    loadFinancialData();
+  }, [loadFinancialData]);
+
+  // Recarrega mostrando o indicador (depois de salvar, excluir...)
+  const fetchFinancialData = () => {
+    setLoading(true);
+    return loadFinancialData();
   };
 
   // Cálculo dinâmico dos procedimentos usando a store global
@@ -187,7 +189,7 @@ export default function CustosETaxasScreen() {
         const nomeProc = nomeInput || `Custo Extra (${formatarCategoriaVariavel(categoriaInput)})`;
         const { error } = await supabase.from('procedures').insert([
           {
-            id: `proc_${Date.now()}`,
+            id: newProcedureId(),
             name: nomeProc,
             category: categoriaInput,
             description: 'Cadastrado como custo variável extra',
@@ -691,7 +693,7 @@ export default function CustosETaxasScreen() {
             <View style={[styles.modalContent, { maxWidth: 360, alignItems: 'center' }]}>
               <Text style={[styles.modalTitle, { textAlign: 'center', marginTop: 8 }]}>Excluir Registo</Text>
               <Text style={styles.deleteModalText}>
-                Tem certeza que deseja apagar "{itemParaDeletar?.nome || itemParaDeletar?.bandeira}"?
+                Tem certeza que deseja apagar &quot;{itemParaDeletar?.nome || itemParaDeletar?.bandeira}&quot;?
               </Text>
 
               <View style={styles.modalButtonsRow}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -31,25 +31,25 @@ export default function CadastrosScreen() {
 
   const rolesOpcoes = ['Administrador', 'Veterinário', 'Esteticista Animal'];
 
-  useEffect(() => {
-    fetchProfiles();
-  }, []);
-
-  const fetchProfiles = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('nome', { ascending: true });
-
-      if (error) throw error;
-      setPerfis(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar perfis:', error);
-    } finally {
+  // Busca no banco; o estado só muda quando a resposta chega (pode rodar dentro do useEffect)
+  const loadProfiles = useCallback(() => supabase
+    .from('profiles')
+    .select('*')
+    .order('nome', { ascending: true })
+    .then(({ data, error }) => {
+      if (error) console.error('Erro ao buscar perfis:', error);
+      else setPerfis(data || []);
       setLoading(false);
-    }
+    }), []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  // Recarrega mostrando o indicador (depois de salvar, excluir...)
+  const fetchProfiles = () => {
+    setLoading(true);
+    return loadProfiles();
   };
 
   const showAlert = (msg) => {

@@ -23,7 +23,8 @@ function AuthGate() {
   const segments = useSegments();
   const [logoutError, setLogoutError] = useState('');
   const currentRoute = segments.length > 0 ? `/${segments[0]}` : '/';
-  const roleLoadedForSession = !session || (roleLoaded && roleUserId === session.user.id);
+  const sessionUserId = (session as { user?: { id?: string } } | null)?.user?.id;
+  const roleLoadedForSession = !session || (roleLoaded && roleUserId === sessionUserId);
 
   useEffect(() => {
     if (!sessionLoaded || !LOGIN_OBRIGATORIO) return;

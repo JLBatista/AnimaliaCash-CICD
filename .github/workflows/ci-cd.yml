@@ -1,0 +1,106 @@
+# Pipeline de CI/CD do Animalia Cash
+#
+# CI (integração contínua), a cada push e pull request:
+#   1. Versão web (React + Vite): instala, roda os testes automáticos e gera o site
+#   2. App (Expo / React Native): checagem de tipos, lint e geração do pacote web do app
+#
+# CD (entrega contínua), só quando o CI passa na branch main:
+#   3. Publica o site no Cloudflare Pages. Precisa dos secrets CLOUDFLARE_API_TOKEN e
+#      CLOUDFLARE_ACCOUNT_ID (Settings > Secrets and variables > Actions). Sem eles, a etapa
+#      só avisa e o site gerado fica disponível para download como artefato da execução.
+
+name: CI/CD
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: CI · Web (testes e build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes automáticos (Vitest)
+        run: npm test
+
+      - name: Gerar o site
+        run: npm run build
+
+      - name: Guardar o site gerado
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-web
+          path: web/dist
+          retention-days: 7
+
+  app:
+    name: CI · App (tipos, lint e bundle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Checagem de tipos (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Lint (ESLint do Expo)
+        run: npx expo lint
+
+      - name: Gerar o pacote do app (prova que o projeto compila)
+        run: npx expo export --platform web --output-dir dist-app
+
+  deploy-web:
+    name: CD · Publicar site
+    needs: [web, app]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Baixar o site testado na etapa de CI
+        uses: actions/download-artifact@v4
+        with:
+          name: site-web
+          path: dist
+
+      - name: Publicar no Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name animaliacash --branch main
+
+      - name: Sem credenciais do Cloudflare
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: |
+          echo "::notice title=Deploy::Secrets do Cloudflare não configurados. O site testado está disponível como artefato 'site-web' desta execução."
+          echo "Arquivos prontos para publicação:"
+          ls -la dist
