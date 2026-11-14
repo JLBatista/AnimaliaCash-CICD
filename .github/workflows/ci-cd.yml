@@ -44,10 +44,14 @@ jobs:
         run: |
           set -o pipefail
           # Em caso de falha, o resumo vira um aviso visível na página da execução
-          npm test 2>&1 | tee test-output.log || {
+          npm test -- --reporter=default --reporter=json --outputFile=test-results.json 2>&1 | tee test-output.log || {
             echo "::error title=Falha nos testes::$(tail -c 3000 test-output.log | tr '\n' ' ')"
             exit 1
           }
+
+      - name: Resumo dos testes na página da execução
+        if: always() && hashFiles('web/test-results.json') != ''
+        run: node scripts/test-summary.mjs test-results.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Gerar o site
         run: npm run build

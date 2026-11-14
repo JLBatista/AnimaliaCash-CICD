@@ -1,5 +1,7 @@
 # 🐾 Animalia Cash
 
+[![CI/CD](https://github.com/JLBatista/AnimaliaCash-CICD/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/JLBatista/AnimaliaCash-CICD/actions/workflows/ci-cd.yml)
+
 > **Sistema de Gestão Financeira e Controle de Estoque por Fracionamento para Clínicas Veterinárias e Pet Shops.**
 
 O **Animalia Cash** é uma solução completa desenvolvida para controlar com precisão o custo operacional de atendimentos veterinários e estéticos. O sistema automatiza a conversão de compras em lote (frascos de medicamentos em mL, pacotes de insumos e utensílios por vida útil) em custos unitários de consumo, permitindo o abate automático de estoque e o cálculo do Lucro Líquido por atendimento em tempo real.
@@ -79,3 +81,15 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
 
 # 5. Iniciar o servidor de desenvolvimento Expo
 npx expo start -c
+
+## CI/CD
+
+A cada envio ao GitHub, o pipeline em [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) roda automaticamente:
+
+| Etapa | O que faz |
+|---|---|
+| **CI · Web** | Instala, roda os 23 testes automáticos (Vitest) e gera o site |
+| **CI · App** | Checagem de tipos (TypeScript), lint (ESLint) e geração do pacote do app Expo |
+| **CD · Publicar site** | Se o CI passar na main, publica o site no Cloudflare Pages (com os secrets CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID) |
+
+Testes locais da versão web: `cd web && npm test`.
