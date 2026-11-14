@@ -23,14 +23,14 @@ concurrency:
 jobs:
   web:
     name: CI · Web (testes e build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -51,13 +51,15 @@ jobs:
 
       - name: Resumo dos testes na página da execução
         if: always() && hashFiles('web/test-results.json') != ''
-        run: node scripts/test-summary.mjs test-results.json >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          node scripts/test-summary.mjs test-results.json >> "$GITHUB_STEP_SUMMARY"
+          node scripts/test-summary.mjs test-results.json --notice
 
       - name: Gerar o site
         run: npm run build
 
       - name: Guardar o site gerado
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: site-web
           path: web/dist
@@ -65,11 +67,11 @@ jobs:
 
   app:
     name: CI · App (tipos, lint e bundle)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -90,13 +92,13 @@ jobs:
     name: CD · Publicar site
     needs: [web, app]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Baixar o site testado na etapa de CI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: site-web
           path: dist

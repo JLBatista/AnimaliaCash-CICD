@@ -10,6 +10,14 @@ const AREAS = {
 };
 
 const report = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+
+// Com --notice, gera só um aviso curto (avisos aparecem na página da execução até para quem não está logado)
+if (process.argv[3] === '--notice') {
+  const areas = report.testResults.map((file) => `${AREAS[basename(file.name)] ?? basename(file.name)}: ${file.assertionResults.filter((t) => t.status === 'passed').length}`);
+  const ok = report.numPassedTests === report.numTotalTests;
+  console.log(`::${ok ? 'notice' : 'error'} title=Testes automáticos::${ok ? '✅' : '❌'} ${report.numPassedTests} de ${report.numTotalTests} testes passaram — ${areas.join(' · ')}`);
+  process.exit(0);
+}
 const icon = (status) => (status === 'passed' ? '✅' : status === 'failed' ? '❌' : '⏭️');
 
 const lines = [
