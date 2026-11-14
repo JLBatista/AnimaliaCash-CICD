@@ -40,7 +40,14 @@ jobs:
         run: npm ci
 
       - name: Testes automáticos (Vitest)
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          # Em caso de falha, o resumo vira um aviso visível na página da execução
+          npm test 2>&1 | tee test-output.log || {
+            echo "::error title=Falha nos testes::$(tail -c 3000 test-output.log | tr '\n' ' ')"
+            exit 1
+          }
 
       - name: Gerar o site
         run: npm run build
